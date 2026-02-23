@@ -1,0 +1,17 @@
+{
+  "name": "pandda-bot",
+  "version": "1.0.0",
+  "description": "Bot de conversão e atendimento para o projeto Pandda",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.3",
+    "@whiskeysockets/baileys": "^6.6.0",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.5",
+    "pino": "^8.19.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
