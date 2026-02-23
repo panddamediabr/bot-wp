@@ -9,9 +9,10 @@ async function iniciarPanddaBot() {
 
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
-        // Mantém o terminal limpo sem poluição visual
-        logger: pino({ level: 'silent' }) 
+        // Removido o printQRInTerminal
+        logger: pino({ level: 'silent' }),
+        // Adicionando um nome de navegador para estabilizar a conexão e camuflar o bot
+        browser: ['Pandda Bot', 'Chrome', '1.0.0']
     });
 
     sock.ev.on('connection.update', (update) => {
