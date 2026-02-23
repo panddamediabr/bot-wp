@@ -1,19 +1,23 @@
 require('dotenv').config();
-// Adicionamos o 'Browsers' aqui na importação
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } = require('@whiskeysockets/baileys');
+// Adicionamos a função fetchLatestBaileysVersion aqui na primeira linha
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 
 async function iniciarPanddaBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    
+    // Busca a versão mais recente do WhatsApp Web nos servidores da Meta
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`\n⚙️  Iniciando Pandda Engine (WhatsApp v${version.join('.')})`);
+    console.log(`Verificação de versão atualizada: ${isLatest ? '✅ Sim' : '❌ Não'}`);
 
     const sock = makeWASocket({
+        version, // Injetamos a versão dinâmica aqui!
         auth: state,
-        // Mudamos temporariamente de 'silent' para 'info' para ver o que o WhatsApp está reclamando
-        logger: pino({ level: 'info' }), 
-        // Usando a camuflagem oficial do Baileys (finge ser o WhatsApp Web no Mac)
+        // Voltamos para 'silent' para o QR Code ficar limpo na tela
+        logger: pino({ level: 'silent' }), 
         browser: Browsers.macOS('Desktop'),
-        // Evita puxar o histórico antigo de mensagens para não dar timeout na conexão
         syncFullHistory: false
     });
 
@@ -29,7 +33,6 @@ async function iniciarPanddaBot() {
             const statusCode = lastDisconnect.error?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             
-            // Agora ele vai nos dizer o motivo exato da queda
             console.log(`\n❌ Conexão fechada. Erro: ${statusCode} | Motivo: ${lastDisconnect.error?.message}`);
             
             if (shouldReconnect) {
