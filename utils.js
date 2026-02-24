@@ -5,16 +5,28 @@ const { delay } = require('@whiskeysockets/baileys');
 const axios = require('axios');
 
 const utils = {
-    /**
+   /**
      * Human Typing Simulator (O Anti-Ban Principal)
      */
-    enviarMensagemComDelay: async (sock, numeroCliente, textoResposta) => {
+    enviarMensagemComDelay: async (sock, msgKey, numeroCliente, textoResposta) => {
+        // 1. TEMPO DE REAÇÃO (Delay antes de visualizar)
+        // Simula o tempo do humano pegando o celular (entre 1.5s e 4s)
+        const tempoReacao = Math.floor(Math.random() * 2500) + 1500;
+        console.log(`\n[Anti-Ban] 🕰️ Tempo de reação: aguardando ${(tempoReacao / 1000).toFixed(1)}s antes de abrir a mensagem...`);
+        await delay(tempoReacao);
+
+        // 2. VISUALIZA A MENSAGEM (Fica azulzinho para o cliente só agora)
+        await sock.readMessages([msgKey]);
+
+        // 3. TEMPO DE DIGITAÇÃO
         const tempoDigitando = (textoResposta.length * 50) + (Math.floor(Math.random() * 3000) + 2000);
+        console.log(`[Anti-Ban] ⏳ Simulando digitação para ${numeroCliente.split('@')[0]} por ${(tempoDigitando / 1000).toFixed(1)}s...`);
 
-        console.log(`\n[Anti-Ban] ⏳ Simulando digitação para ${numeroCliente.split('@')[0]} por ${(tempoDigitando / 1000).toFixed(1)} segundos...`);
-
+        // Mostra o status "Digitando..."
         await sock.sendPresenceUpdate('composing', numeroCliente);
         await delay(tempoDigitando);
+        
+        // Pausa a digitação e envia a mensagem
         await sock.sendPresenceUpdate('paused', numeroCliente);
         await sock.sendMessage(numeroCliente, { text: textoResposta });
         

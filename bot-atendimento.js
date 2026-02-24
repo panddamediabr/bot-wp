@@ -50,7 +50,8 @@ async function processarMensagemVendas(sock, msg) {
             break;
     }
 
-    await utils.enviarMensagemComDelay(sock, numeroCliente, textoResposta);
+// Dispara a resposta usando a "Pandda Engine" passando a key para atrasar a leitura
+    await utils.enviarMensagemComDelay(sock, msg.key, numeroCliente, textoResposta);
 }
 
 module.exports = { processarMensagemVendas };
