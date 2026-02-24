@@ -15,12 +15,15 @@ async function iniciarPanddaVendas() {
     
     console.log(`\n⚙️  Iniciando Pandda Engine - Módulo Vendas (WhatsApp v${version.join('.')})`);
 
-    const sock = makeWASocket({
+const sock = makeWASocket({
         version,
         auth: state,
         logger: pino({ level: 'silent' }), 
         browser: Browsers.macOS('Desktop'),
-        syncFullHistory: false
+        syncFullHistory: false,
+        
+        // 🥷 MODO FANTASMA: Impede que o WhatsApp mostre o bot "Online" 24h por dia
+        markOnlineOnConnect: false 
     });
 
     // 📡 ROTEADOR DE MENSAGENS
