@@ -1,50 +1,51 @@
+// 📁 index.js
+// O Maestro: Inicia as conexões e distribui as mensagens para os bots corretos
+
 require('dotenv').config();
-// Adicionamos a função fetchLatestBaileysVersion aqui na primeira linha
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const qrcode = require('qrcode-terminal');
 
-async function iniciarPanddaBot() {
+// Importa o controlador de Vendas que acabamos de criar
+const { processarMensagemVendas } = require('./bot-atendimento');
+
+async function iniciarPanddaVendas() {
+    // Mantemos a mesma pasta onde você já escaneou o QR Code para não precisar ler de novo
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    const { version } = await fetchLatestBaileysVersion();
     
-    // Busca a versão mais recente do WhatsApp Web nos servidores da Meta
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`\n⚙️  Iniciando Pandda Engine (WhatsApp v${version.join('.')})`);
-    console.log(`Verificação de versão atualizada: ${isLatest ? '✅ Sim' : '❌ Não'}`);
+    console.log(`\n⚙️  Iniciando Pandda Engine - Módulo Vendas (WhatsApp v${version.join('.')})`);
 
     const sock = makeWASocket({
-        version, // Injetamos a versão dinâmica aqui!
+        version,
         auth: state,
-        // Voltamos para 'silent' para o QR Code ficar limpo na tela
         logger: pino({ level: 'silent' }), 
         browser: Browsers.macOS('Desktop'),
         syncFullHistory: false
     });
 
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (qr) {
-            console.log('\n🐼 PANDDA BOT: Escaneie o QR Code abaixo com o seu WhatsApp Business:\n');
-            qrcode.generate(qr, { small: true });
-        }
+    // 📡 ROTEADOR DE MENSAGENS
+    sock.ev.on('messages.upsert', async (m) => {
+        const msg = m.messages[0];
+        // Envia a mensagem recebida direto para o arquivo de lógica de vendas
+        await processarMensagemVendas(sock, msg);
+    });
 
+    // 🔄 CONTROLE DE CONEXÃO
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update;
+        
         if (connection === 'close') {
             const statusCode = lastDisconnect.error?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            
-            console.log(`\n❌ Conexão fechada. Erro: ${statusCode} | Motivo: ${lastDisconnect.error?.message}`);
-            
-            if (shouldReconnect) {
-                console.log('🔄 Tentando reconectar...\n');
-                iniciarPanddaBot();
-            }
+            console.log(`\n❌ Conexão fechada. Reconectando módulo de Vendas...`);
+            if (shouldReconnect) iniciarPanddaVendas();
         } else if (connection === 'open') {
-            console.log('\n✅ PANDDA BOT CONECTADO COM SUCESSO!\n');
+            console.log('\n✅ PANDDA VENDAS CONECTADO E PRONTO PARA ATENDER!\n');
         }
     });
 
     sock.ev.on('creds.update', saveCreds);
 }
 
-iniciarPanddaBot();
+// Dá a partida no bot
+iniciarPanddaVendas();
