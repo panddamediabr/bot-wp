@@ -11,15 +11,10 @@ function getSaudacao() {
 
 const menusAtendimento = {
     desculpaAtraso: () => {
-        const desculpas = [
-            "Mil desculpas pela demora! Estávamos com um pico de atendimentos aqui. 🙏",
-            "Perdão pelo tempo de espera! Nosso sistema estava atualizando. 🐼",
-            "Opa, desculpe a demora para responder! Tivemos uma fila grande agora pouco. ⚡"
-        ];
+        const desculpas = ["Mil desculpas pela demora! Estávamos com um pico de atendimentos aqui. 🙏", "Perdão pelo tempo de espera! Nosso sistema estava atualizando. 🐼", "Opa, desculpe a demora para responder! Tivemos uma fila grande agora pouco. ⚡"];
         return desculpas[Math.floor(Math.random() * desculpas.length)];
     },
 
-    // 🔥 NOVO: Agora retorna um Array com duas mensagens separadas
     menuPrincipal: () => {
         const saudacao = `${getSaudacao()}! 🐼`;
         const menu = `Você está no atendimento automático da *Pandda*.\n\nComo posso te ajudar hoje? Responda com o *número* da opção desejada:\n\n*1.* 💡 Como funciona a tecnologia?\n*2.* 🎁 Quero meu teste grátis\n*3.* 💳 Assinar plano (R$ 36,90)\n*4.* 👤 Falar com atendente`;
@@ -30,15 +25,15 @@ const menusAtendimento = {
         return `A Pandda utiliza o sistema *DualAPP*! ⚡\n\nDiferente dos serviços comuns que travam, nós entregamos *duas plataformas independentes* pelo preço de uma.\n\n*Valor único:* R$ 36,90/mês.\n\nDigite *2* para agendar um teste grátis ou *0* para voltar.`;
     },
 
-    // 🔥 NOVO: Calcula os horários disponíveis dinamicamente
+    // 🔥 NOVO: Texto de bloqueio Anti-Abuso
+    limiteTesteAtingido: () => {
+        return `Ops! 🐼\n\nVerifiquei aqui no sistema e vi que você já solicitou um teste grátis anteriormente.\n\nPara garantir a qualidade do nosso servidor, liberamos apenas *1 teste por aparelho*.\n\nSe você gostou e quer assinar, digite *3*. Se precisar de ajuda, digite *4* para falar com um atendente.`;
+    },
+
     menuTesteGratis: () => {
         const horaAtual = new Date().getHours();
         let horarios = [];
-        
-        // Pega as próximas horas do dia até as 23h
-        for (let i = horaAtual + 1; i <= 23; i++) {
-            horarios.push(`${i}h`);
-        }
+        for (let i = horaAtual + 1; i <= 23; i++) horarios.push(`${i}h`);
 
         let textoHorarios = horarios.length > 0 
             ? `⏰ *Horários disponíveis hoje:*\n${horarios.join(', ')}` 
