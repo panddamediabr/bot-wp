@@ -1,5 +1,4 @@
 // 📁 bot-atendimento.js
-// Controlador principal do funil de Vendas com Fila Estrita (Queue) e Anti-Ban
 
 const menus = require('./menus-atendimento');
 const utils = require('./utils');
@@ -7,9 +6,8 @@ const config = require('./config');
 
 const filaDeMensagens = [];
 let processandoFila = false;
-
-// Cadeado de atendimento para bloquear mensagens de clientes ansiosos
 const usuariosEmAtendimento = new Set();
+const estadoClientes = {};
 
 async function processarFila() {
     if (processandoFila || filaDeMensagens.length === 0) return;
@@ -19,7 +17,6 @@ async function processarFila() {
     const { sock, msg } = tarefaAtual;
     const numeroCliente = msg.key.remoteJid;
 
-    // Tranca o cliente: o bot está focado nele agora
     usuariosEmAtendimento.add(numeroCliente);
 
     try {
@@ -31,48 +28,109 @@ async function processarFila() {
         textoRecebido = textoRecebido.trim();
         const numeroLimpo = utils.limparNumero(numeroCliente);
         
-        // 🕰️ CÁLCULO DE TEMPO (Time-Travel)
         const tempoAtual = Math.floor(Date.now() / 1000);
-        const timestampMensagem = msg.messageTimestamp;
-        const atrasoEmSegundos = tempoAtual - timestampMensagem;
+        const atrasoEmSegundos = tempoAtual - msg.messageTimestamp;
         
         let prefixoDesculpa = '';
-        // Se a mensagem for mais velha que 5 minutos (300 segundos), pede desculpa
-        if (atrasoEmSegundos > 300) {
-            console.log(`[ATRASO] Mensagem antiga detectada. Injetando desculpas.`);
-            prefixoDesculpa = menus.desculpaAtraso() + '\n\n';
-        }
+        if (atrasoEmSegundos > 300) prefixoDesculpa = menus.desculpaAtraso() + '\n\n';
 
         console.log(`\n📦 [FILA] Processando mensagem de ${numeroLimpo}: ${textoRecebido}`);
         let textoResposta = '';
 
-        switch (textoRecebido) {
-            case '1': textoResposta = menus.menuComoFunciona(); break;
-            case '2': textoResposta = menus.menuTesteGratis(); break;
-            case '3': textoResposta = menus.menuAssinar(); break;
-            case '4':
-                textoResposta = menus.menuAtendente();
-                const linkZap = `https://wa.me/${numeroLimpo}`;
-                const alerta = `🚨 **NOVO CHAMADO DE SUPORTE** 🚨\n\nO cliente solicitou atendimento humano no bot de Vendas.\n📱 **WhatsApp:** ${linkZap}`;
-                await utils.enviarAlertaDiscord(config.discord.atendimento, alerta);
-                break;
-            default: textoResposta = menus.menuPrincipal(); break;
+        // Puxa a memória do cliente (se ele estiver agendando algo)
+        const estadoAtual = estadoClientes[numeroCliente];
+
+        // 🟢 PASSO 1: Recebendo a Hora do Cliente
+        if (estadoAtual?.passo === 'AGUARDANDO_HORARIO') {
+            
+            // Extrai apenas os números da mensagem (Ex: "14:20" vira "1420", pegamos só o "14")
+            let numeros = textoRecebido.match(/\d+/g);
+            let horaEscolhida = numeros ? parseInt(numeros[0].substring(0, 2)) : null;
+
+            if (horaEscolhida !== null && horaEscolhida >= 0 && horaEscolhida <= 23) {
+                // Avança o cliente para o próximo passo
+                estadoClientes[numeroCliente] = { passo: 'CONFIRMANDO_HORARIO', hora: horaEscolhida };
+                textoResposta = `Você escolheu agendar para as *${horaEscolhida}h*. Confirma?\n\n*1* - Sim\n*2* - Não`;
+            } else {
+                textoResposta = `Não entendi o horário. 🐼\nPor favor, digite apenas a hora desejada (ex: 18 ou 20):`;
+            }
+
+        // 🟢 PASSO 2: Confirmando e Salvando no Banco
+        } else if (estadoAtual?.passo === 'CONFIRMANDO_HORARIO') {
+            
+            if (textoRecebido === '1' || textoRecebido.toLowerCase() === 'sim' || textoRecebido.toLowerCase() === 's') {
+                const horarioFinal = `${estadoAtual.hora}:00`;
+                textoResposta = menus.confirmacaoTeste(horarioFinal);
+                delete estadoClientes[numeroCliente]; // Limpa a memória
+
+                // 🔥 Gravação Assíncrona Blindada (Não trava o bot se der erro)
+                (async () => {
+                    try {
+                        console.log(`\n[SISTEMA] Iniciando gravação do lead ${numeroLimpo}...`);
+                        
+                        // 1. Banco de Dados
+                        if (config.db) {
+                            const { error } = await config.db.from('leads').upsert({ 
+                                phone_number: numeroLimpo,
+                                scheduled_slot: horarioFinal,
+                                status_teste: 'aguardando'
+                            });
+                            if (error) throw new Error(`Erro Supabase: ${error.message}`);
+                            console.log(`[SUPABASE] ✅ Lead gravado com sucesso!`);
+                        } else {
+                            console.error(`[SUPABASE] ❌ config.db não está configurado!`);
+                        }
+
+                        // 2. Alerta Discord (Usa o webhook de testes, se não existir, usa o de atendimento)
+                        const webhookUrl = config.discord.testes || config.discord.atendimento;
+                        if (webhookUrl) {
+                            const alerta = `🎁 **NOVO TESTE SOLICITADO** 🎁\n📱 **WhatsApp:** https://wa.me/${numeroLimpo}\n⏰ **Horário:** ${horarioFinal}`;
+                            await utils.enviarAlertaDiscord(webhookUrl, alerta);
+                        } else {
+                            console.error(`[DISCORD] ❌ Nenhuma URL de Webhook configurada!`);
+                        }
+                    } catch (e) {
+                        console.error(`[SISTEMA] ❌ Falha crítica ao salvar dados do lead:`, e);
+                    }
+                })();
+
+            } else {
+                estadoClientes[numeroCliente] = { passo: 'AGUARDANDO_HORARIO' };
+                textoResposta = `Sem problemas! Digite o novo horário que deseja (ex: 19):`;
+            }
+
+        // 🟢 MENU NORMAL
+        } else {
+            switch (textoRecebido) {
+                case '1': textoResposta = menus.menuComoFunciona(); break;
+                case '2': 
+                    textoResposta = menus.menuTesteGratis(); 
+                    estadoClientes[numeroCliente] = { passo: 'AGUARDANDO_HORARIO' }; 
+                    break;
+                case '3': textoResposta = menus.menuAssinar(); break;
+                case '4':
+                    textoResposta = menus.menuAtendente();
+                    const alerta = `🚨 **NOVO CHAMADO DE SUPORTE** 🚨\n📱 **WhatsApp:** https://wa.me/${numeroLimpo}`;
+                    await utils.enviarAlertaDiscord(config.discord.atendimento, alerta);
+                    break;
+                default: textoResposta = menus.menuPrincipal(); break;
+            }
         }
 
-        textoResposta = prefixoDesculpa + textoResposta;
+        // Injeta o pedido de desculpas, se houver
+        if (prefixoDesculpa) {
+            if (Array.isArray(textoResposta)) textoResposta[0] = prefixoDesculpa + textoResposta[0];
+            else textoResposta = prefixoDesculpa + textoResposta;
+        }
 
-        // Executa todo o delay e status de digitação
         await utils.enviarMensagemComDelay(sock, msg.key, numeroCliente, textoResposta);
 
     } catch (erro) {
         console.error(`\n❌ [ERRO] Falha ao processar mensagem na fila:`, erro);
     } finally {
-        // Libera o cadeado: agora o cliente pode mandar opções novamente
         usuariosEmAtendimento.delete(numeroCliente);
-        
         processandoFila = false;
-        const pausaEntreConversas = Math.floor(Math.random() * 2000) + 1000;
-        await require('@whiskeysockets/baileys').delay(pausaEntreConversas);
+        await require('@whiskeysockets/baileys').delay(Math.floor(Math.random() * 2000) + 1000);
         processarFila();
     }
 }
@@ -80,27 +138,15 @@ async function processarFila() {
 async function receberMensagemVendas(sock, msg) {
     if (!msg.message || msg.key.fromMe || msg.key.remoteJid === 'status@broadcast' || msg.key.remoteJid.includes('@g.us')) return;
 
-    // 🔥 BLINDAGEM ANTI-ANSIEDADE:
     if (usuariosEmAtendimento.has(msg.key.remoteJid)) {
-        console.log(`[CADEADO] Cliente ansioso (${utils.limparNumero(msg.key.remoteJid)}). Ignorando comando.`);
-        
-        // 🔥 O PULO DO GATO: Marca a mensagem como lida (azul) na mesma hora, 
-        // simulando que o humano viu a mensagem chegar na tela enquanto digitava.
+        console.log(`[CADEADO] Cliente ansioso. Ignorando.`);
         sock.readMessages([msg.key]);
-        
         return;
     }
 
-    // 🔥 ANTI-SPAM (Deduplicação da Fila de Espera)
     const indexExistente = filaDeMensagens.findIndex(t => t.msg.key.remoteJid === msg.key.remoteJid);
-    
-    if (indexExistente !== -1) {
-        filaDeMensagens[indexExistente].msg = msg;
-        console.log(`[FILA] Mensagem de ${utils.limparNumero(msg.key.remoteJid)} atualizada.`);
-    } else {
-        filaDeMensagens.push({ sock, msg });
-        console.log(`\n📥 [FILA] Nova mensagem adicionada. Total na fila: ${filaDeMensagens.length}`);
-    }
+    if (indexExistente !== -1) filaDeMensagens[indexExistente].msg = msg;
+    else filaDeMensagens.push({ sock, msg });
 
     processarFila();
 }
