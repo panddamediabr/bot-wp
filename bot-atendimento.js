@@ -3,15 +3,13 @@
 
 const menus = require('./menus-atendimento');
 const utils = require('./utils');
-const config = require('./config'); // Já deixamos importado para usarmos o Supabase logo em seguida
+const config = require('./config');
 
 async function processarMensagemVendas(sock, msg) {
-    // 1. Filtros de Segurança: Ignora status, grupos e mensagens do próprio bot
     if (!msg.message || msg.key.fromMe || msg.key.remoteJid === 'status@broadcast' || msg.key.remoteJid.includes('@g.us')) return;
 
     const numeroCliente = msg.key.remoteJid;
     
-    // 2. Extração do Texto da Mensagem (O Baileys envia o texto em formatos diferentes dependendo se tem link ou não)
     const tipoMensagem = Object.keys(msg.message)[0];
     let textoRecebido = '';
     
@@ -22,11 +20,11 @@ async function processarMensagemVendas(sock, msg) {
     }
 
     textoRecebido = textoRecebido.trim();
-    console.log(`\n📩 [VENDAS] Mensagem de ${utils.limparNumero(numeroCliente)}: ${textoRecebido}`);
+    const numeroLimpo = utils.limparNumero(numeroCliente);
+    console.log(`\n📩 [VENDAS] Mensagem de ${numeroLimpo}: ${textoRecebido}`);
 
     let textoResposta = '';
 
-    // 3. Roteamento do Menu (Decide o que responder com base no que o cliente digitou)
     switch (textoRecebido) {
         case '1':
             textoResposta = menus.menuComoFunciona();
@@ -39,16 +37,19 @@ async function processarMensagemVendas(sock, msg) {
             break;
         case '4':
             textoResposta = menus.menuAtendente();
-            // Aqui na próxima fase, vamos disparar o Webhook para o Discord avisando que alguém quer suporte humano!
+            
+            // 🔥 Disparo do Webhook para a fila de Atendimento no Discord
+            const linkZap = `https://wa.me/${numeroLimpo}`;
+            const alerta = `🚨 **NOVO CHAMADO DE SUPORTE** 🚨\n\nO cliente solicitou atendimento humano no bot de Vendas.\n📱 **WhatsApp:** ${linkZap}`;
+            
+            // Usa a URL de atendimento que configuramos no .env
+            await utils.enviarAlertaDiscord(config.discord.atendimento, alerta);
             break;
         default:
-            // Se o cliente digitar qualquer outra coisa (como "Oi", "Bom dia", ou um número errado)
-            // Mandamos o Menu Principal dinâmico com o Text Spinning
             textoResposta = menus.menuPrincipal();
             break;
     }
 
-    // 4. Dispara a resposta usando a "Pandda Engine" (Delay matemático + Status Digitando)
     await utils.enviarMensagemComDelay(sock, numeroCliente, textoResposta);
 }
 
