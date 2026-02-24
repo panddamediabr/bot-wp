@@ -82,7 +82,12 @@ async function receberMensagemVendas(sock, msg) {
 
     // 🔥 BLINDAGEM ANTI-ANSIEDADE:
     if (usuariosEmAtendimento.has(msg.key.remoteJid)) {
-        console.log(`[CADEADO] Cliente ansioso (${utils.limparNumero(msg.key.remoteJid)}). Mensagem ignorada pois o bot está digitando.`);
+        console.log(`[CADEADO] Cliente ansioso (${utils.limparNumero(msg.key.remoteJid)}). Ignorando comando.`);
+        
+        // 🔥 O PULO DO GATO: Marca a mensagem como lida (azul) na mesma hora, 
+        // simulando que o humano viu a mensagem chegar na tela enquanto digitava.
+        sock.readMessages([msg.key]);
+        
         return;
     }
 
