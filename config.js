@@ -1,33 +1,28 @@
 // 📁 config.js
-// Central de ligações e variáveis de ambiente (Supabase, Discord, MercadoPago)
+// Gestor de variáveis de ambiente e ligação ao Banco de Dados
 
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
-// 1. Validação de Segurança
-// Garante que o bot não arranca se faltarem as chaves no telemóvel
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
-    console.error('❌ ERRO CRÍTICO: Credenciais do Supabase não encontradas no ficheiro .env!');
-    process.exit(1);
-}
+// Inicializa a ligação ao Supabase apenas se as chaves existirem no .env
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
-// 2. Inicialização do Cliente Supabase
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
-// 3. Exportação das configurações consolidadas
-const config = {
+module.exports = {
+    // Banco de Dados
     db: supabase,
     
+    // Canais do Discord
     discord: {
-        pagamentos: process.env.DISCORD_WEBHOOK_PAGAMENTOS,
-        testes: process.env.DISCORD_WEBHOOK_TESTES,
-        atendimento: process.env.DISCORD_WEBHOOK_ATENDIMENTO
+        atendimento: process.env.WEBHOOK_ATENDIMENTO,
+        testes: process.env.WEBHOOK_TESTES,
+        pagamentos: process.env.WEBHOOK_PAGAMENTOS
     },
     
+    // Credenciais do MercadoPago (Para a Fase de Pagamentos)
     mercadoPago: {
-        accessToken: process.env.MP_ACCESS_TOKEN,
-        publicKey: process.env.MP_PUBLIC_KEY
+        publicKey: process.env.MP_PUBLIC_KEY,
+        accessToken: process.env.MP_ACCESS_TOKEN
     }
 };
-
-module.exports = config;
