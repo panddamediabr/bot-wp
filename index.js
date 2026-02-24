@@ -2,34 +2,33 @@
 // O Maestro: Inicia as conexões e distribui as mensagens para os bots corretos
 
 require('dotenv').config();
-const { receberMensagemVendas } = require('./bot-atendimento');
+// 🔥 Correção: Adicionamos o useMultiFileAuthState aqui na importação!
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 
-// Importa o controlador de Vendas que acabamos de criar
-const { processarMensagemVendas } = require('./bot-atendimento');
+// Importa o controlador de Vendas que criamos
+const { receberMensagemVendas } = require('./bot-atendimento');
 
 async function iniciarPanddaVendas() {
-    // Mantemos a mesma pasta onde você já escaneou o QR Code para não precisar ler de novo
+    // Agora o Node.js sabe o que é essa função e o erro fatal vai sumir
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
     const { version } = await fetchLatestBaileysVersion();
     
     console.log(`\n⚙️  Iniciando Pandda Engine - Módulo Vendas (WhatsApp v${version.join('.')})`);
 
-const sock = makeWASocket({
+    const sock = makeWASocket({
         version,
         auth: state,
         logger: pino({ level: 'silent' }), 
         browser: Browsers.macOS('Desktop'),
         syncFullHistory: false,
-        
-        // 🥷 MODO FANTASMA: Impede que o WhatsApp mostre o bot "Online" 24h por dia
         markOnlineOnConnect: false 
     });
 
     // 📡 ROTEADOR DE MENSAGENS
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
-        // Envia a mensagem recebida direto para o arquivo de lógica de vendas
+        // Envia a mensagem recebida para a nossa Fila no controlador de vendas
         receberMensagemVendas(sock, msg);
     });
 
@@ -50,5 +49,4 @@ const sock = makeWASocket({
     sock.ev.on('creds.update', saveCreds);
 }
 
-// Dá a partida no bot
 iniciarPanddaVendas();
