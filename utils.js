@@ -11,7 +11,7 @@ const utils = {
     enviarMensagemComDelay: async (sock, msgKey, numeroCliente, textoResposta) => {
         // 1. TEMPO DE REAÇÃO (Delay antes de visualizar)
         // Simula o tempo do humano pegando o celular (entre 1.5s e 4s)
-        const tempoReacao = Math.floor(Math.random() * 2500) + 1500;
+        const tempoReacao = Math.floor(Math.random() * 4000) + 2000;
         console.log(`\n[Anti-Ban] 🕰️ Tempo de reação: aguardando ${(tempoReacao / 1000).toFixed(1)}s antes de abrir a mensagem...`);
         await delay(tempoReacao);
 

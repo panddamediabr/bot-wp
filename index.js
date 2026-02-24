@@ -2,7 +2,7 @@
 // O Maestro: Inicia as conexões e distribui as mensagens para os bots corretos
 
 require('dotenv').config();
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { receberMensagemVendas } = require('./bot-atendimento');
 const pino = require('pino');
 
 // Importa o controlador de Vendas que acabamos de criar
@@ -30,7 +30,7 @@ const sock = makeWASocket({
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
         // Envia a mensagem recebida direto para o arquivo de lógica de vendas
-        await processarMensagemVendas(sock, msg);
+        receberMensagemVendas(sock, msg);
     });
 
     // 🔄 CONTROLE DE CONEXÃO
