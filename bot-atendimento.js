@@ -124,17 +124,15 @@ async function processarFila() {
                 textoResposta = `Sem problemas! Vamos recomeçar. Digite o novo horário que deseja (ex: 19):`;
             }
 
-        // 🟢 MENU NORMAL
+// 🟢 MENU NORMAL
         } else {
             switch (textoRecebido) {
                 case '1': textoResposta = menus.menuComoFunciona(); break;
+                
                 case '2': 
                     let jaTestou = false;
                     if (config.db) {
                         try {
-                            // Se for LID, não temos como verificar o limite pelo número real AINDA. 
-                            // O ideal é deixar ele passar e tratar o abuso lá na frente (ou bloquear pelo próprio LID).
-                            // Por enquanto, bloqueamos se a etiqueta já existir no banco.
                             const { data } = await config.db.from('leads').select('phone_number').eq('phone_number', numeroLimpo).maybeSingle();
                             if (data) jaTestou = true;
                         } catch (e) {}
@@ -144,7 +142,7 @@ async function processarFila() {
                         textoResposta = menus.limiteTesteAtingido();
                     } else {
                         textoResposta = menus.menuTesteGratis(); 
-                        estadoClientes[numeroCliente] = { passo: 'AGUARDANDO_HORARIO' }; 
+                        estadoClientes[numeroCliente] = { passo: 'AGUARDANDO_HORARIO', saudado: true }; // 🔥 Salva que já foi saudado
                     }
                     break;
                 case '3': textoResposta = menus.menuAssinar(); break;
@@ -153,7 +151,15 @@ async function processarFila() {
                     const alerta = `🚨 **NOVO CHAMADO DE SUPORTE** 🚨\n📱 **WhatsApp:** https://wa.me/${numeroLimpo}`;
                     await utils.enviarAlertaDiscord(config.discord.atendimento, alerta);
                     break;
-                default: textoResposta = menus.menuPrincipal(); break;
+                case '0':
+                default: 
+                    // 🔥 Verifica se o cliente já está na memória e já foi saudado
+                    const jaFoiSaudado = estadoAtual?.saudado || false; 
+                    textoResposta = menus.menuPrincipal(jaFoiSaudado); 
+                    
+                    // Garante que a memória marque que ele foi saudado a partir de agora
+                    estadoClientes[numeroCliente] = { ...estadoAtual, saudado: true };
+                    break;
             }
         }
 
